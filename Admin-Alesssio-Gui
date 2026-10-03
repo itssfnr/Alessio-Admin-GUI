@@ -1,0 +1,1228 @@
+-- Alessio Hub - single LocalScript for your own Roblox Studio experience.
+-- Place this LocalScript in StarterPlayer > StarterPlayerScripts.
+-- Personal effects are client-side; position slots are kept only for this session.
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local random = Random.new()
+local accentIndex = 1
+
+local T = {
+	background = Color3.fromRGB(12, 15, 26),
+	panel = Color3.fromRGB(19, 24, 39),
+	card = Color3.fromRGB(27, 33, 52),
+	muted = Color3.fromRGB(150, 161, 185),
+	text = Color3.fromRGB(241, 245, 255),
+	accent = Color3.fromRGB(111, 91, 255),
+	accent2 = Color3.fromRGB(37, 208, 196),
+	good = Color3.fromRGB(91, 220, 159),
+	bad = Color3.fromRGB(255, 115, 137),
+}
+
+local function make(className, parent, props)
+	local object = Instance.new(className)
+	for key, value in pairs(props or {}) do object[key] = value end
+	object.Parent = parent
+	return object
+end
+
+local function corner(parent, radius)
+	return make("UICorner", parent, { CornerRadius = UDim.new(0, radius or 12) })
+end
+
+local function outline(parent, color, transparency, thickness)
+	return make("UIStroke", parent, {
+		Color = color or Color3.fromRGB(75, 87, 119),
+		Transparency = transparency or 0.55,
+		Thickness = thickness or 1,
+	})
+end
+
+local animationsEnabled = true
+local function tween(object, duration, properties, style, direction)
+	if not object or not object.Parent then return nil end
+	if not animationsEnabled then
+		for key, value in pairs(properties) do object[key] = value end
+		return nil
+	end
+	local info = TweenInfo.new(duration, style or Enum.EasingStyle.Quint, direction or Enum.EasingDirection.Out)
+	local current = TweenService:Create(object, info, properties)
+	current:Play()
+	return current
+end
+
+local screen = make("ScreenGui", playerGui, {
+	Name = "AlessioHub",
+	ResetOnSpawn = false,
+	IgnoreGuiInset = false,
+	DisplayOrder = 30,
+})
+
+local flyControls = make("Frame", screen, {
+	Name = "FlyTouchControls",
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, -28),
+	Size = UDim2.fromOffset(244, 56),
+	BackgroundColor3 = T.panel,
+	BackgroundTransparency = 0.08,
+	Visible = false,
+})
+corner(flyControls, 16)
+outline(flyControls, T.accent2, 0.35, 1)
+
+local main = make("CanvasGroup", screen, {
+	Name = "MainWindow",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromOffset(920, 640),
+	BackgroundColor3 = T.panel,
+	BackgroundTransparency = 0,
+	GroupTransparency = 0,
+	ClipsDescendants = true,
+})
+corner(main, 22)
+outline(main, T.accent, 0.25, 1.4)
+make("UIGradient", main, {
+	Rotation = 135,
+	Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(24, 28, 48)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(13, 17, 30)),
+	}),
+})
+
+local header = make("Frame", main, {
+	Name = "Header",
+	Position = UDim2.fromOffset(0, 0),
+	Size = UDim2.new(1, 0, 0, 66),
+	BackgroundTransparency = 1,
+})
+local title = make("TextLabel", header, {
+	Position = UDim2.fromOffset(22, 10),
+	Size = UDim2.new(0, 280, 0, 28),
+	BackgroundTransparency = 1,
+	Text = "ALESSIO  /  HUB",
+	TextColor3 = T.text,
+	TextSize = 21,
+	Font = Enum.Font.GothamBold,
+	TextXAlignment = Enum.TextXAlignment.Left,
+})
+local subtitle = make("TextLabel", header, {
+	Position = UDim2.fromOffset(23, 37),
+	Size = UDim2.new(0, 390, 0, 18),
+	BackgroundTransparency = 1,
+	Text = "PERSONAL GAME PANEL   •   F2 TO TOGGLE",
+	TextColor3 = T.muted,
+	TextSize = 10,
+	Font = Enum.Font.GothamSemibold,
+	TextXAlignment = Enum.TextXAlignment.Left,
+})
+local badge = make("TextLabel", header, {
+	AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.new(1, -64, 0.5, 0),
+	Size = UDim2.fromOffset(104, 28),
+	BackgroundColor3 = Color3.fromRGB(30, 46, 58),
+	Text = "LOCAL SESSION",
+	TextColor3 = T.accent2,
+	TextSize = 9,
+	Font = Enum.Font.GothamBold,
+})
+corner(badge, 9)
+local closeButton = make("TextButton", header, {
+	AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.new(1, -15, 0.5, 0),
+	Size = UDim2.fromOffset(34, 34),
+	BackgroundColor3 = Color3.fromRGB(51, 38, 57),
+	Text = "×",
+	TextColor3 = T.text,
+	TextSize = 24,
+	Font = Enum.Font.GothamMedium,
+	AutoButtonColor = false,
+})
+corner(closeButton, 11)
+
+local body = make("Frame", main, {
+	Position = UDim2.fromOffset(0, 66),
+	Size = UDim2.new(1, 0, 1, -66),
+	BackgroundTransparency = 1,
+})
+local nav = make("ScrollingFrame", body, {
+	Position = UDim2.fromOffset(12, 0),
+	Size = UDim2.new(0, 170, 1, -12),
+	BackgroundColor3 = Color3.fromRGB(15, 19, 32),
+	BackgroundTransparency = 0.15,
+	BorderSizePixel = 0,
+	ScrollBarThickness = 2,
+	CanvasSize = UDim2.new(),
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	ScrollingDirection = Enum.ScrollingDirection.Y,
+})
+corner(nav, 16)
+local navLayout = make("UIListLayout", nav, {
+	Padding = UDim.new(0, 5),
+	SortOrder = Enum.SortOrder.LayoutOrder,
+})
+make("UIPadding", nav, {
+	PaddingTop = UDim.new(0, 12),
+	PaddingLeft = UDim.new(0, 9),
+	PaddingRight = UDim.new(0, 9),
+})
+local pagesHolder = make("Frame", body, {
+	Position = UDim2.new(0, 192, 0, 0),
+	Size = UDim2.new(1, -204, 1, -12),
+	BackgroundTransparency = 1,
+})
+
+local toast = make("TextLabel", screen, {
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, 38),
+	Size = UDim2.new(0, 380, 0, 44),
+	BackgroundColor3 = Color3.fromRGB(24, 31, 49),
+	BackgroundTransparency = 0.05,
+	Text = "",
+	TextColor3 = T.text,
+	TextSize = 13,
+	Font = Enum.Font.GothamSemibold,
+	TextWrapped = true,
+	ZIndex = 20,
+})
+corner(toast, 14)
+outline(toast, T.accent2, 0.45, 1)
+local toastId = 0
+local function notify(message, isBad)
+	toastId += 1
+	local id = toastId
+	toast.Text = tostring(message)
+	toast.TextColor3 = isBad and T.bad or T.text
+	tween(toast, 0.22, { Position = UDim2.new(0.5, 0, 1, -22) })
+	task.delay(2.8, function()
+		if toastId == id then tween(toast, 0.22, { Position = UDim2.new(0.5, 0, 1, 38) }) end
+	end)
+end
+
+local pages = {}
+local tabButtons = {}
+local tabNames = { "Start", "Skin", "Bewegung", "Fly", "Position", "Auren", "Troll", "Server", "Reset", "Einstellungen / Hilfe" }
+local coreCount = 0
+local functionDirectory = {}
+local togglePanel
+local function addPageHeading(page, heading, detail)
+	local block = make("Frame", page, {
+		Size = UDim2.new(1, -4, 0, 74),
+		BackgroundTransparency = 1,
+	})
+	make("TextLabel", block, {
+		Position = UDim2.fromOffset(5, 2),
+		Size = UDim2.new(1, -10, 0, 31),
+		BackgroundTransparency = 1,
+		Text = heading,
+		TextColor3 = T.text,
+		TextSize = 22,
+		Font = Enum.Font.GothamBold,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	})
+	make("TextLabel", block, {
+		Position = UDim2.fromOffset(6, 36),
+		Size = UDim2.new(1, -12, 0, 33),
+		BackgroundTransparency = 1,
+		Text = detail,
+		TextColor3 = T.muted,
+		TextSize = 11,
+		Font = Enum.Font.Gotham,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+	})
+end
+
+for index, name in ipairs(tabNames) do
+	local tabIndex = index
+	local button = make("TextButton", nav, {
+		Name = "Tab_" .. tabIndex,
+		Size = UDim2.new(1, 0, 0, 37),
+		BackgroundColor3 = Color3.fromRGB(22, 28, 44),
+		BackgroundTransparency = tabIndex == 1 and 0 or 0.7,
+		Text = name,
+		TextColor3 = tabIndex == 1 and T.text or T.muted,
+		TextSize = 11,
+		Font = Enum.Font.GothamSemibold,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		AutoButtonColor = false,
+		LayoutOrder = tabIndex,
+	})
+	corner(button, 10)
+	make("UIPadding", button, { PaddingLeft = UDim.new(0, 12) })
+	tabButtons[index] = button
+	local page = make("ScrollingFrame", pagesHolder, {
+		Name = "Page_" .. index,
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 4,
+		ScrollBarImageColor3 = T.accent,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		Visible = tabIndex == 1,
+	})
+	make("UIListLayout", page, { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder })
+	make("UIPadding", page, {
+		PaddingTop = UDim.new(0, 6),
+		PaddingLeft = UDim.new(0, 3),
+		PaddingRight = UDim.new(0, 8),
+		PaddingBottom = UDim.new(0, 12),
+	})
+	pages[tabIndex] = page
+	button.Activated:Connect(function()
+		for i, otherPage in ipairs(pages) do
+			otherPage.Visible = i == tabIndex
+			otherPage.Position = UDim2.new(0, i == tabIndex and 7 or 0, 0, 0)
+			tabButtons[i].BackgroundTransparency = i == tabIndex and 0 or 0.7
+			tabButtons[i].TextColor3 = i == tabIndex and T.text or T.muted
+		end
+		page.CanvasPosition = Vector2.zero
+		tween(page, 0.18, { Position = UDim2.new(0, 0, 0, 0) })
+	end)
+end
+
+local cardLayouts = {}
+local narrowCards = main.Size.X.Offset < 620
+local function applyCardLayout(record, narrow)
+	local actionWidth = narrow and 78 or 114
+	record.Label.Size = UDim2.new(1, -(actionWidth + 30), 0, record.Small and 21 or 23)
+	record.Description.Size = UDim2.new(1, -(actionWidth + 34), 0, record.Small and 20 or 27)
+	record.Button.Size = UDim2.fromOffset(actionWidth, record.Small and 34 or 38)
+end
+local function relayoutCards()
+	local newNarrow = main.Size.X.Offset < 620
+	if newNarrow == narrowCards then return end
+	narrowCards = newNarrow
+	for _, record in ipairs(cardLayouts) do applyCardLayout(record, narrowCards) end
+end
+main:GetPropertyChangedSignal("Size"):Connect(relayoutCards)
+
+local function addCard(pageIndex, name, description, action, order, small)
+	local page = pages[pageIndex]
+	local card = make("Frame", page, {
+		Size = UDim2.new(1, -4, 0, small and 58 or 72),
+		BackgroundColor3 = T.card,
+		BackgroundTransparency = 0.08,
+		LayoutOrder = order or 10,
+	})
+	corner(card, 13)
+	outline(card, Color3.fromRGB(77, 91, 125), 0.78, 1)
+	local label = make("TextLabel", card, {
+		Position = UDim2.fromOffset(13, 9),
+		Size = UDim2.new(1, -(narrowCards and 108 or 144), 0, small and 21 or 23),
+		BackgroundTransparency = 1,
+		Text = name,
+		TextColor3 = T.text,
+		TextSize = small and 11 or 12,
+		Font = Enum.Font.GothamSemibold,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+	})
+	local detail = make("TextLabel", card, {
+		Position = UDim2.fromOffset(13, small and 29 or 35),
+		Size = UDim2.new(1, -(narrowCards and 112 or 148), 0, small and 20 or 27),
+		BackgroundTransparency = 1,
+		Text = description,
+		TextColor3 = T.muted,
+		TextSize = 9,
+		Font = Enum.Font.Gotham,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		TextWrapped = true,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+	})
+	local button = make("TextButton", card, {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -10, 0.5, 0),
+		Size = UDim2.fromOffset(narrowCards and 78 or 114, small and 34 or 38),
+		BackgroundColor3 = T.accent,
+		Text = "AKTIVIEREN",
+		TextColor3 = Color3.new(1, 1, 1),
+		TextSize = 9,
+		Font = Enum.Font.GothamBold,
+		AutoButtonColor = false,
+	})
+	table.insert(cardLayouts, { Label = label, Description = detail, Button = button, Small = small })
+	applyCardLayout(cardLayouts[#cardLayouts], narrowCards)
+	corner(button, 10)
+	button.MouseEnter:Connect(function() tween(button, 0.12, { BackgroundColor3 = T.accent2 }) end)
+	button.MouseLeave:Connect(function() tween(button, 0.12, { BackgroundColor3 = T.accent }) end)
+	button.Activated:Connect(function()
+		local actionWidth = narrowCards and 78 or 114
+		tween(button, 0.08, { Size = UDim2.fromOffset(actionWidth - 6, small and 32 or 36) })
+		task.delay(0.08, function()
+			if button.Parent then tween(button, 0.12, { Size = UDim2.fromOffset(narrowCards and 78 or 114, small and 34 or 38) }) end
+		end)
+		local ok, err = pcall(action)
+		if not ok then
+			warn("Alessio Hub action failed:", err)
+			notify("Aktion konnte nicht ausgeführt werden.", true)
+		end
+	end)
+	return card, button
+end
+
+local function addCore(tab, label, description, callback)
+	coreCount += 1
+	functionDirectory[coreCount] = label
+	addCard(tab, label, description, callback, coreCount + 10, false)
+end
+
+local character, humanoid, root
+local defaultScale, defaultSpeed, defaultJumpPower, defaultJumpHeight, defaultAutoRotate
+local defaultCameraOffset = Vector3.zero
+local defaultCameraFov = Workspace.CurrentCamera and Workspace.CurrentCamera.FieldOfView or 70
+local originalColors = {}
+local function captureCharacter(char)
+	character = char
+	humanoid = char:WaitForChild("Humanoid", 8)
+	root = char:WaitForChild("HumanoidRootPart", 8)
+	if not humanoid or not root then return end
+	defaultScale = char:GetScale()
+	defaultSpeed = humanoid.WalkSpeed
+	defaultJumpPower = humanoid.JumpPower
+	defaultJumpHeight = humanoid.JumpHeight
+	defaultAutoRotate = humanoid.AutoRotate
+	defaultCameraOffset = humanoid.CameraOffset
+	originalColors = {}
+	for _, item in ipairs(char:GetDescendants()) do
+		if item:IsA("BasePart") then originalColors[item] = { Color = item.Color, Material = item.Material } end
+	end
+end
+if player.Character then task.spawn(captureCharacter, player.Character) end
+player.CharacterAdded:Connect(function(char)
+	task.spawn(captureCharacter, char)
+	task.delay(0.2, function()
+		flyControls.Visible = false
+	end)
+end)
+
+local function refreshCharacter()
+	if not character or not character.Parent or not humanoid or not humanoid.Parent or not root or not root.Parent then
+		character = player.Character
+		if character then
+			humanoid = character:FindFirstChildOfClass("Humanoid")
+			root = character:FindFirstChild("HumanoidRootPart")
+		end
+	end
+	return character and humanoid and root
+end
+
+local function setCharacterScale(factor)
+	if not refreshCharacter() then notify("Dein Charakter ist gerade nicht bereit.", true); return end
+	local base = defaultScale or character:GetScale()
+	character:ScaleTo(math.clamp(base * factor, 0.45, 1.8))
+	notify("Charaktergröße angepasst.")
+end
+
+local function setJump(value)
+	if not refreshCharacter() then return end
+	if humanoid.UseJumpPower then humanoid.JumpPower = math.clamp(value, 20, 110)
+	else humanoid.JumpHeight = math.clamp(value, 3, 24) end
+end
+
+local function setColorAll(color)
+	if not refreshCharacter() then return end
+	for _, item in ipairs(character:GetDescendants()) do
+		if item:IsA("BasePart") and item.Name ~= "HumanoidRootPart" then item.Color = color end
+	end
+end
+
+local function restoreColors()
+	for part, values in pairs(originalColors) do
+		if part and part.Parent then part.Color = values.Color; part.Material = values.Material end
+	end
+end
+
+local slots = {}
+local lastCheckpoint
+local positionNameBox
+local positionSlotsLabel
+local function requestedName()
+	local name = positionNameBox and positionNameBox.Text or ""
+	name = string.match(name, "^%s*(.-)%s*$") or ""
+	if #name > 24 then name = string.sub(name, 1, 24) end
+	return name
+end
+
+local function refreshPositionList()
+	if not positionSlotsLabel then return end
+	local names = {}
+	for name in pairs(slots) do table.insert(names, name) end
+	table.sort(names)
+	positionSlotsLabel.Text = #names == 0 and "GESPEICHERTE PLÄTZE\nNoch keine Plätze gespeichert." or "GESPEICHERTE PLÄTZE\n" .. table.concat(names, "\n")
+end
+
+local function makePositionInput()
+	local frame = make("Frame", pages[5], {
+		Size = UDim2.new(1, -4, 0, 62),
+		BackgroundColor3 = T.card,
+		LayoutOrder = 3,
+	})
+	corner(frame, 13)
+	positionNameBox = make("TextBox", frame, {
+		Position = UDim2.fromOffset(10, 10),
+		Size = UDim2.new(1, -20, 0, 42),
+		BackgroundColor3 = Color3.fromRGB(16, 21, 35),
+		Text = "",
+		PlaceholderText = "Platzname eingeben (max. 24 Zeichen)",
+		PlaceholderColor3 = T.muted,
+		TextColor3 = T.text,
+		TextSize = 12,
+		Font = Enum.Font.Gotham,
+		ClearTextOnFocus = false,
+	})
+	corner(positionNameBox, 10)
+	positionSlotsLabel = make("TextLabel", pages[5], {
+		Size = UDim2.new(1, -4, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundTransparency = 1,
+		Text = "GESPEICHERTE PLÄTZE\nNoch keine Plätze gespeichert.",
+		TextColor3 = T.muted,
+		TextSize = 10,
+		Font = Enum.Font.Gotham,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		LayoutOrder = 4,
+	})
+	return frame
+end
+
+local function getSafeLanding(savedCFrame)
+	if not refreshCharacter() then return nil, "Charakter fehlt" end
+	local p = savedCFrame.Position
+	if math.abs(p.X) > 100000 or math.abs(p.Y) > 100000 or math.abs(p.Z) > 100000 then return nil, "Ziel liegt außerhalb des erlaubten Bereichs" end
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	rayParams.FilterDescendantsInstances = { character }
+	rayParams.IgnoreWater = true
+	local hit = Workspace:Raycast(p + Vector3.new(0, 45, 0), Vector3.new(0, -100, 0), rayParams)
+	if not hit or hit.Position.Y > p.Y + 8 or hit.Position.Y < p.Y - 40 then return nil, "Kein sicherer Boden am gespeicherten Ort" end
+	local y = hit.Position.Y + humanoid.HipHeight + root.Size.Y * 0.5 + 0.35
+	local destination = Vector3.new(p.X, y, p.Z)
+	local overlap = OverlapParams.new()
+	overlap.FilterType = Enum.RaycastFilterType.Exclude
+	overlap.FilterDescendantsInstances = { character }
+	local parts = Workspace:GetPartBoundsInBox(CFrame.new(destination), Vector3.new(2.5, 4, 2.5), overlap)
+	for _, part in ipairs(parts) do
+		if part.CanCollide and part.Transparency < 1 then return nil, "Der Zielpunkt ist blockiert" end
+	end
+	return CFrame.new(destination) * savedCFrame.Rotation
+end
+
+local function teleportTo(savedCFrame, successText)
+	local safe, reason = getSafeLanding(savedCFrame)
+	if not safe then notify(reason, true); return end
+	local glow = make("Highlight", character, {
+		Name = "AlessioTeleportFlash",
+		FillColor = T.accent2,
+		OutlineColor = T.text,
+		FillTransparency = 0.15,
+		OutlineTransparency = 0.05,
+		DepthMode = Enum.HighlightDepthMode.AlwaysOnTop,
+	})
+	root.AssemblyLinearVelocity = Vector3.zero
+	character:PivotTo(safe)
+	tween(glow, 0.28, { FillTransparency = 1, OutlineTransparency = 1 })
+	task.delay(0.32, function() if glow.Parent then glow:Destroy() end end)
+	notify(successText)
+end
+
+local auraEnabled, auraStrength, auraStyle = false, 1, 1
+local auraParts, auraConnection = {}, nil
+local function clearAura()
+	auraEnabled = false
+	if auraConnection then auraConnection:Disconnect(); auraConnection = nil end
+	for _, item in ipairs(auraParts) do if item and item.Parent then item:Destroy() end end
+	auraParts = {}
+end
+
+local function buildAura()
+	clearAura()
+	if not refreshCharacter() then notify("Warte, bis dein Charakter erscheint.", true); return end
+	auraEnabled = true
+	local color = Color3.fromHSV((auraStyle * 0.137) % 1, 0.8, 1)
+	local count = 7
+	for i = 1, count do
+		local part = make("Part", Workspace, {
+			Name = "AlessioAuraLocal",
+			Shape = i == 1 and Enum.PartType.Cylinder or ((auraStyle % 3 == 0 and i % 2 == 0) and Enum.PartType.Block or Enum.PartType.Ball),
+			Size = i == 1 and Vector3.new(0.12, 4.3, 4.3) or Vector3.new(0.3, 0.3, 0.3),
+			Material = Enum.Material.Neon,
+			Color = color,
+			Transparency = 0.18,
+			Anchored = true,
+			CanCollide = false,
+			CanTouch = false,
+			CanQuery = false,
+			CastShadow = false,
+		})
+		auraParts[i] = part
+	end
+	auraConnection = RunService.Heartbeat:Connect(function()
+		if not auraEnabled or not refreshCharacter() then clearAura(); return end
+		local now = os.clock()
+		local radius = 2.0 + auraStrength * 0.55
+		local hue = (auraStyle * 0.137 + now * 0.08) % 1
+		local currentColor = Color3.fromHSV(hue, 0.82, 1)
+		for i, part in ipairs(auraParts) do
+			if part and part.Parent then
+				part.Color = currentColor
+				if i == 1 then
+					part.Size = Vector3.new(0.12, radius * 2, radius * 2)
+					part.CFrame = CFrame.new(root.Position + Vector3.new(0, -humanoid.HipHeight + 0.5, 0)) * CFrame.Angles(0, 0, math.rad(90))
+				else
+					local angle = now * (0.75 + auraStrength * 0.18) + (i - 2) * (math.pi * 2 / (count - 1))
+					local y = math.sin(now * 1.6 + i) * (0.65 + auraStrength * 0.12)
+					local offset = Vector3.new(math.cos(angle) * radius, y, math.sin(angle) * radius)
+					part.CFrame = CFrame.new(root.Position + offset)
+				end
+			end
+		end
+	end)
+end
+
+local flyEnabled, flySpeed, flyVertical = false, 48, 0
+local flyAttachment, flyVelocity, flyConnection
+local flyHumanoid, flyRoot, flyCameraOffset, savedAutoRotate
+local function setFly(on)
+	if on == flyEnabled then return end
+	if on then
+		if not refreshCharacter() then notify("Warte, bis dein Charakter erscheint.", true); return end
+		flyEnabled = true
+		flyHumanoid, flyRoot = humanoid, root
+		savedAutoRotate = humanoid.AutoRotate
+		flyCameraOffset = humanoid.CameraOffset
+		tween(humanoid, 0.18, { CameraOffset = flyCameraOffset + Vector3.new(0, 0.22, 0) })
+		humanoid.AutoRotate = false
+		humanoid:ChangeState(Enum.HumanoidStateType.Freefall)
+		flyAttachment = make("Attachment", flyRoot, { Name = "AlessioFlyAttachment" })
+		flyVelocity = make("LinearVelocity", flyRoot, {
+			Name = "AlessioFlyVelocity",
+			Attachment0 = flyAttachment,
+			RelativeTo = Enum.ActuatorRelativeTo.World,
+			VelocityConstraintMode = Enum.VelocityConstraintMode.Vector,
+			VectorVelocity = Vector3.zero,
+			MaxForce = 100000,
+		})
+		flyControls.Visible = true
+		flyConnection = RunService.Heartbeat:Connect(function()
+			if not flyEnabled or not flyHumanoid or not flyHumanoid.Parent or not flyRoot or not flyRoot.Parent or not flyVelocity or not flyVelocity.Parent then return end
+			local move = flyHumanoid.MoveDirection
+			local vertical = flyVertical
+			if UserInputService:IsKeyDown(Enum.KeyCode.Space) then vertical = 1 end
+			if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.RightControl) then vertical = -1 end
+			if UserInputService:IsGamepadButtonDown(Enum.UserInputType.Gamepad1, Enum.KeyCode.ButtonR2) then vertical = 1 end
+			if UserInputService:IsGamepadButtonDown(Enum.UserInputType.Gamepad1, Enum.KeyCode.ButtonL2) then vertical = -1 end
+			local camera = Workspace.CurrentCamera
+			if camera and move.Magnitude > 0.01 then
+				local look = camera.CFrame.LookVector
+				local right = camera.CFrame.RightVector
+				local flatForward = Vector3.new(look.X, 0, look.Z)
+				if flatForward.Magnitude > 0.01 then
+					flatForward = flatForward.Unit
+					local flatRight = Vector3.new(right.X, 0, right.Z).Unit
+					move = flatRight * move:Dot(flatRight) + flatForward * move:Dot(flatForward)
+				end
+			end
+			flyVelocity.VectorVelocity = move * flySpeed + Vector3.new(0, vertical * flySpeed, 0)
+		end)
+		notify("Fly aktiviert · WASD/Joystick, Space hoch, Ctrl runter")
+	else
+		flyEnabled = false
+		flyVertical = 0
+		if flyConnection then flyConnection:Disconnect(); flyConnection = nil end
+		if flyVelocity then flyVelocity:Destroy(); flyVelocity = nil end
+		if flyAttachment then flyAttachment:Destroy(); flyAttachment = nil end
+		flyControls.Visible = false
+		if flyHumanoid and flyHumanoid.Parent then
+			flyHumanoid.AutoRotate = savedAutoRotate ~= nil and savedAutoRotate or (defaultAutoRotate ~= nil and defaultAutoRotate or true)
+			tween(flyHumanoid, 0.18, { CameraOffset = flyCameraOffset or defaultCameraOffset })
+			flyHumanoid:ChangeState(Enum.HumanoidStateType.Running)
+		end
+		flyHumanoid, flyRoot, flyCameraOffset, savedAutoRotate = nil, nil, nil, nil
+		notify("Fly beendet · Bewegung wieder normal")
+	end
+end
+
+local flyDirections = { { "▲", 1 }, { "●", 0 }, { "▼", -1 } }
+for i, pair in ipairs(flyDirections) do
+	local buttonText, verticalValue = pair[1], pair[2]
+	local button = make("TextButton", flyControls, {
+		Position = UDim2.new(0, 8 + (i - 1) * 78, 0, 8),
+		Size = UDim2.fromOffset(70, 40),
+		BackgroundColor3 = i == 2 and Color3.fromRGB(42, 50, 71) or T.accent,
+		Text = buttonText,
+		TextColor3 = T.text,
+		TextSize = 18,
+		Font = Enum.Font.GothamBold,
+		AutoButtonColor = false,
+	})
+	corner(button, 11)
+	button.Activated:Connect(function() flyVertical = verticalValue end)
+end
+
+local spectateIndex = 0
+local function eligibleSpectatePlayers()
+	local result = {}
+	for _, other in ipairs(Players:GetPlayers()) do
+		if other ~= player and other.Character and other.Character:FindFirstChildOfClass("Humanoid") then table.insert(result, other) end
+	end
+	table.sort(result, function(a, b) return a.Name < b.Name end)
+	return result
+end
+
+local function stopSpectate()
+	local camera = Workspace.CurrentCamera
+	if camera and humanoid and humanoid.Parent then camera.CameraSubject = humanoid end
+	spectateIndex = 0
+	notify("Kamera zurück auf deinen Charakter")
+end
+
+local function spectateStep(direction)
+	local list = eligibleSpectatePlayers()
+	if #list == 0 then notify("Gerade ist niemand anderes im Server.", true); return end
+	spectateIndex = ((spectateIndex - 1 + direction) % #list) + 1
+	local target = list[spectateIndex]
+	local camera = Workspace.CurrentCamera
+	local targetHumanoid = target.Character and target.Character:FindFirstChildOfClass("Humanoid")
+	if camera and targetHumanoid then
+		camera.CameraSubject = targetHumanoid
+		notify("Spectate: " .. target.DisplayName)
+	end
+end
+
+local activeTrollCleanup
+local activeTrollIndex
+local function stopTroll()
+	if activeTrollCleanup then
+		local cleanup = activeTrollCleanup
+		activeTrollCleanup = nil
+		activeTrollIndex = nil
+		pcall(cleanup)
+	end
+end
+
+local trollNames = {
+	"Neon-Umriss", "Doppelkontur", "Prisma-Rand", "Mint-Rahmen", "Korallen-Glow", "Lavendel-Silhouette", "Sonnenrand", "Eisblau-Leuchten", "Regenbogenkontur", "Nachtneon",
+	"Pinkes Echo", "Goldener Schatten", "Tuerkis-Glanz", "Violetter Halo", "Limetten-Licht", "Rubin-Silhouette", "Azur-Schimmer", "Pastell-Umriss", "Spektrum-Glow", "Polarlicht-Rand",
+	"Orbit: Sternchen", "Orbit: Mini-Monde", "Orbit: Neon-Wuerfel", "Orbit: Cyan-Kugeln", "Orbit: Goldringe", "Orbit: Pastellpunkte", "Orbit: Doppelschleife", "Orbit: Schnellkreis", "Orbit: Langsamer Tanz", "Orbit: Hoehenflug",
+	"Orbit: Tiefenwirbel", "Orbit: Prisma-Bahn", "Orbit: Dreifach-Tanz", "Orbit: Sternenring", "Orbit: Mint-Meteor", "Orbit: Korallen-Komet", "Orbit: Eisbahn", "Orbit: Pixelplaneten", "Orbit: Ovalflug", "Orbit: Alessio-System",
+	"Bildschirm: Konfetti", "Bildschirm: Sternregen", "Bildschirm: Farbblitze", "Bildschirm: Seitenwischer", "Bildschirm: Pixelregen", "Bildschirm: Diagonalflug", "Bildschirm: Kreiselpunkte", "Bildschirm: Bunte Karten", "Bildschirm: Mini-Sterne", "Bildschirm: Neonstreifen",
+	"Bildschirm: Konfetti links", "Bildschirm: Konfetti rechts", "Bildschirm: Wirbel oben", "Bildschirm: Wirbel unten", "Bildschirm: Pastellregen", "Bildschirm: Farbkarussell", "Bildschirm: Fallende Rauten", "Bildschirm: Sternschnuppen", "Bildschirm: Funkelregen", "Bildschirm: Partyrahmen",
+	"Kamera: sanftes Wippen", "Kamera: Mini-Zoom", "Kamera: Linksneigung", "Kamera: Rechtsneigung", "Kamera: Hoehenwelle", "Kamera: sanfter Zoom", "Kamera: Seitenwelle", "Kamera: Kreiselblick", "Kamera: Mikrobounce", "Kamera: Fokus-Puls",
+	"Kamera: Mondschaukel", "Kamera: Disco-Zoom", "Kamera: Links-Rechts", "Kamera: Hoehenhuepfer", "Kamera: sanftes Rollen", "Kamera: Wellenblick", "Kamera: Sternenblick", "Kamera: Perspektiv-Puls", "Kamera: Mini-Karussell", "Kamera: Finale Welle",
+	"Pose: Sieger", "Pose: Roboter", "Pose: Vogelflug", "Pose: Wackelarm", "Pose: Disco", "Pose: Superheld", "Pose: Roboter links", "Pose: Roboter rechts", "Pose: Fluegelpaar", "Pose: Seitenschwung",
+	"Pose: Winke-Welle", "Pose: Mini-Tanz", "Pose: Jubelpose", "Pose: Ruehrwerk", "Pose: Sternsprung", "Pose: Kreiselarme", "Pose: Schwebepose", "Pose: Schmetterling", "Pose: Alessio-Tanz", "Pose: Schlussverbeugung",
+}
+
+local function playTroll(index)
+	if index < 1 or index > 100 then return end
+	if activeTrollCleanup then
+		if activeTrollIndex == index then stopTroll(); notify("Effekt beendet."); return end
+		stopTroll()
+	end
+	if not refreshCharacter() then notify("Warte, bis dein Charakter erscheint.", true); return end
+	local name = trollNames[index]
+	local family = math.floor((index - 1) / 20) + 1
+	local variant = (index - 1) % 20 + 1
+	local duration = 4.2
+	local color = Color3.fromHSV(((index * 0.071) + 0.04) % 1, 0.78, 1)
+	local cleaned = false
+	local cleanupList = {}
+	local function cleanup()
+		if cleaned then return end
+		cleaned = true
+		for _, item in ipairs(cleanupList) do
+			if typeof(item) == "RBXScriptConnection" then item:Disconnect()
+			elseif typeof(item) == "Instance" and item.Parent then item:Destroy()
+			elseif type(item) == "function" then pcall(item) end
+		end
+		if activeTrollCleanup == cleanup then activeTrollCleanup = nil; activeTrollIndex = nil end
+	end
+	activeTrollCleanup = cleanup
+	activeTrollIndex = index
+
+	if family == 1 then
+		local h = make("Highlight", character, {
+			Name = "AlessioLocalTrollGlow",
+			FillColor = color,
+			OutlineColor = Color3.fromHSV((index * 0.113) % 1, 0.55, 1),
+			FillTransparency = 0.25 + (variant % 5) * 0.08,
+			OutlineTransparency = 0.05,
+			DepthMode = variant % 2 == 0 and Enum.HighlightDepthMode.Occluded or Enum.HighlightDepthMode.AlwaysOnTop,
+		})
+		table.insert(cleanupList, h)
+		local connection = RunService.Heartbeat:Connect(function()
+			if h.Parent then h.FillTransparency = 0.2 + (math.sin(os.clock() * (1.3 + variant * 0.17)) + 1) * 0.19 end
+		end)
+		table.insert(cleanupList, connection)
+	elseif family == 2 then
+		local pieces = {}
+		local count = 3 + (variant % 6)
+		for i = 1, count do
+			local part = make("Part", Workspace, {
+				Name = "AlessioOrbitLocal",
+				Shape = (i + variant) % 3 == 0 and Enum.PartType.Block or Enum.PartType.Ball,
+				Size = Vector3.new(0.22 + (variant % 4) * 0.07, 0.22 + (variant % 4) * 0.07, 0.22 + (variant % 4) * 0.07),
+				Material = Enum.Material.Neon,
+				Color = Color3.fromHSV((index * 0.071 + i * 0.09) % 1, 0.8, 1),
+				Anchored = true,
+				CanCollide = false,
+				CanTouch = false,
+				CanQuery = false,
+				CastShadow = false,
+			})
+			pieces[i] = part
+			table.insert(cleanupList, part)
+		end
+		local connection = RunService.RenderStepped:Connect(function()
+			if not root or not root.Parent then return end
+			local now = os.clock()
+			local rate = (0.55 + variant * 0.095) * (variant % 2 == 0 and -1 or 1)
+			for i, part in ipairs(pieces) do
+				local angle = now * rate + (i - 1) * math.pi * 2 / count
+				local rx = 1.5 + variant * 0.035
+				local rz = rx * (0.65 + (variant % 5) * 0.12)
+				local y = math.sin(angle * (0.65 + variant * 0.01)) * (0.5 + (i % 3) * 0.2)
+				part.CFrame = CFrame.new(root.Position + Vector3.new(math.cos(angle) * rx, y, math.sin(angle) * rz)) * CFrame.Angles(angle, angle * 0.6, angle * 0.3)
+			end
+		end)
+		table.insert(cleanupList, connection)
+	elseif family == 3 then
+		local overlay = make("Frame", screen, {
+			Name = "AlessioLocalScreenGag",
+			Size = UDim2.fromScale(1, 1),
+			BackgroundTransparency = 1,
+			ZIndex = 12,
+			Active = false,
+		})
+		table.insert(cleanupList, overlay)
+		local pieces = {}
+		local count = 9 + (variant % 8)
+		for i = 1, count do
+			local piece = make("Frame", overlay, {
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(random:NextNumber(), random:NextNumber()),
+				Size = UDim2.fromOffset(5 + (i + variant) % 14, 5 + (i * variant) % 12),
+				BackgroundColor3 = Color3.fromHSV((index * 0.071 + i / count) % 1, 0.75, 1),
+				BackgroundTransparency = 0.08,
+				Rotation = (i * 43 + variant * 11) % 360,
+				BorderSizePixel = 0,
+				ZIndex = 13,
+			})
+			corner(piece, (i + variant) % 2 == 0 and 8 or 2)
+			pieces[i] = piece
+		end
+		for i, piece in ipairs(pieces) do
+			local durationThis = 1.3 + (i % 5) * 0.22 + variant * 0.025
+			local x = ((i * 0.127 + variant * 0.037) % 1)
+			local y = ((i * 0.193 + variant * 0.061) % 1)
+			tween(piece, durationThis, {
+				Position = UDim2.fromScale(x, y),
+				Rotation = piece.Rotation + 180 + variant * 9,
+				BackgroundTransparency = 0.12 + (i % 4) * 0.12,
+			}, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+		end
+	elseif family == 4 then
+		local cam = Workspace.CurrentCamera
+		local oldFov = cam and cam.FieldOfView
+		local oldOffset = humanoid.CameraOffset
+		local connection = RunService.RenderStepped:Connect(function()
+			if not humanoid or not humanoid.Parent then return end
+			local t = os.clock() * (0.7 + variant * 0.12)
+			local amp = 0.025 + variant * 0.002
+			local x, y = math.sin(t) * amp, math.cos(t * (0.72 + variant * 0.01)) * amp
+			if variant % 4 == 1 then humanoid.CameraOffset = oldOffset + Vector3.new(x * 4, 0, 0)
+			elseif variant % 4 == 2 then humanoid.CameraOffset = oldOffset + Vector3.new(0, y * 4, 0)
+			elseif variant % 4 == 3 then humanoid.CameraOffset = oldOffset + Vector3.new(x * 3, y * 3, 0)
+			else humanoid.CameraOffset = oldOffset end
+			if cam and cam.Parent then cam.FieldOfView = math.clamp(oldFov + math.sin(t * 1.4) * (1.3 + variant * 0.11), 20, 120) end
+		end)
+		table.insert(cleanupList, connection)
+		table.insert(cleanupList, function()
+			if humanoid and humanoid.Parent then humanoid.CameraOffset = oldOffset end
+			if cam and cam.Parent and oldFov then tween(cam, 0.25, { FieldOfView = oldFov }) end
+		end)
+	else
+		local motors = {}
+		for _, item in ipairs(character:GetDescendants()) do
+			if item:IsA("Motor6D") and item.Name ~= "RootJoint" and item.Name ~= "Root" then
+				motors[#motors + 1] = { Motor = item, Original = item.Transform }
+			end
+		end
+		local connection = RunService.PreSimulation:Connect(function()
+			local t = os.clock() * (1.5 + variant * 0.08)
+			for i, data in ipairs(motors) do
+				if data.Motor.Parent then
+					local sign = ((i + variant) % 2 == 0) and 1 or -1
+					local amount = math.sin(t + i * 0.8) * math.rad(5 + variant * 0.45) * sign
+					local axis = (variant + i) % 3
+					local rotation = axis == 0 and CFrame.Angles(amount, 0, 0) or (axis == 1 and CFrame.Angles(0, amount, 0) or CFrame.Angles(0, 0, amount))
+					data.Motor.Transform = data.Original * rotation
+				end
+			end
+		end)
+		table.insert(cleanupList, connection)
+		table.insert(cleanupList, function()
+			for _, data in ipairs(motors) do if data.Motor.Parent then data.Motor.Transform = data.Original end end
+		end)
+	end
+
+	notify(name .. " · nur für dich · erneut klicken zum Beenden")
+	task.delay(duration, cleanup)
+end
+
+local function addTrollCards()
+	local page = pages[7]
+	for i, name in ipairs(trollNames) do
+		local effectIndex, effectName = i, name
+		functionDirectory[50 + effectIndex] = effectName
+		addCard(7, string.format("%03d  ·  %s", 50 + effectIndex, effectName), "Kurzer, lokaler Gag am eigenen Charakter oder Bildschirm.", function() playTroll(effectIndex) end, 20 + effectIndex, true)
+	end
+end
+
+player.CharacterAdded:Connect(function()
+	if flyEnabled then setFly(false) end
+	clearAura()
+	stopTroll()
+	local cameraNow = Workspace.CurrentCamera
+	if cameraNow then cameraNow.FieldOfView = defaultCameraFov end
+end)
+
+local serverRoster
+local function refreshRoster()
+	if not serverRoster then return end
+	local names = {}
+	for _, other in ipairs(Players:GetPlayers()) do
+		table.insert(names, other.DisplayName .. "  @" .. other.Name)
+	end
+	table.sort(names)
+	serverRoster.Text = "Spieler in dieser Sitzung: " .. #names .. "\n" .. (#names > 0 and table.concat(names, "\n") or "Niemand")
+end
+
+-- The 50 hub entries begin here. All actions are local to the player running this LocalScript.
+addPageHeading(pages[1], "Dein Alessio Hub", "Ein kleines Kontrollpanel für deine eigene Experience.")
+addPageHeading(pages[2], "Skin", "Optische Änderungen werden lokal angewendet und beim Zurücksetzen wiederhergestellt.")
+addPageHeading(pages[3], "Bewegung", "Bewegungswerte betreffen nur deinen lokalen Charakter und können vom Spielserver überschrieben werden.")
+addPageHeading(pages[4], "Fly", "Persönliche Flugsteuerung: WASD oder Joystick, Space hoch, Ctrl runter; Touch-Tasten erscheinen beim Aktivieren.")
+addPageHeading(pages[5], "Position", "Gespeicherte Plätze liegen nur im Arbeitsspeicher dieser Sitzung.")
+makePositionInput()
+addPageHeading(pages[6], "Auren", "Leichte lokale Neon-Deko. Es werden nur wenige feste Teile benutzt.")
+addPageHeading(pages[7], "Troll", "100 eigene, harmlose Kamera-, Bildschirm- und Charakter-Gags. Andere Spieler werden nicht verändert.")
+addPageHeading(pages[8], "Server", "Diese Ein-Script-Fassung zeigt nur lokale Sitzungsinfos. Sichere Admin- oder Serveraktionen brauchen Server-Code.")
+serverRoster = make("TextLabel", pages[8], {
+	Size = UDim2.new(1, -4, 0, 100),
+	BackgroundColor3 = T.card,
+	Text = "",
+	TextColor3 = T.text,
+	TextSize = 12,
+	Font = Enum.Font.Gotham,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Top,
+	TextWrapped = true,
+	LayoutOrder = 3,
+})
+corner(serverRoster, 13)
+make("UIPadding", serverRoster, { PaddingLeft = UDim.new(0, 14), PaddingTop = UDim.new(0, 12) })
+Players.PlayerAdded:Connect(refreshRoster)
+Players.PlayerRemoving:Connect(refreshRoster)
+task.defer(refreshRoster)
+addPageHeading(pages[9], "Zurück auf Normal", "Setzt persönliche Änderungen zurück und behält deine gespeicherten Positionsplätze.")
+addPageHeading(pages[10], "Einstellungen / Hilfe", "Ziehe am oberen Rand zum Verschieben und an der Ecke unten rechts zum Skalieren. F2 blendet das Panel ein oder aus.")
+
+-- 1-6 Start
+addCore(1, "Panel ein-/ausblenden", "Schließt das Fenster; mit F2 kannst du es jederzeit wieder öffnen.", function() if togglePanel then togglePanel() end end)
+addCore(1, "Begrüßungs-Gag anzeigen", "Zeigt die fiktive Hub-Nachricht erneut.", function() notify("Alessio-Hub-Gag: Dein Charakter hat heute offiziell 100 % Hauptfigur-Energie.") end)
+addCore(1, "Akzentfarbe wechseln", "Wechselt zwischen mehreren UI-Farben.", function()
+	local colors = { Color3.fromRGB(111, 91, 255), Color3.fromRGB(255, 91, 153), Color3.fromRGB(32, 190, 184), Color3.fromRGB(255, 164, 72), Color3.fromRGB(85, 145, 255) }
+	accentIndex = (accentIndex % #colors) + 1
+	T.accent = colors[accentIndex]
+	for _, item in ipairs(screen:GetDescendants()) do
+		if item:IsA("UIStroke") and item.Thickness > 1 then item.Color = T.accent end
+		if item:IsA("TextButton") and item.Text == "AKTIVIEREN" then item.BackgroundColor3 = T.accent end
+	end
+	notify("Hub-Farbe aktualisiert.")
+end)
+addCore(1, "Fenster kompakt / normal", "Schaltet zwischen zwei Fenstergrößen um.", function()
+	local compact = main.Size.X.Offset > 800
+	local size = compact and UDim2.fromOffset(740, 520) or UDim2.fromOffset(920, 640)
+	tween(main, 0.25, { Size = size })
+end)
+addCore(1, "Zum Start-Tab", "Springt zum Startbereich.", function() tabButtons[1]:Activate() end)
+addCore(1, "Hinweis erneut zeigen", "Zeigt einen kurzen Bedienhinweis.", function() notify("F2: Panel · obere Leiste: ziehen · Ecke unten rechts: skalieren") end)
+
+-- 7-12 Skin
+addCore(2, "Kleiner Charakter", "Skaliert die Optik auf 80 %.", function() setCharacterScale(0.8) end)
+addCore(2, "Großer Charakter", "Skaliert die Optik auf 120 %.", function() setCharacterScale(1.2) end)
+addCore(2, "Standardgröße", "Stellt die beim Spawn erfasste Modellgröße wieder her.", function() if refreshCharacter() then character:ScaleTo(defaultScale or 1) end end)
+addCore(2, "Skin-Preset: Mini", "Setzt ein kompaktes Größenpreset.", function() setCharacterScale(0.68) end)
+addCore(2, "Skin-Preset: Riese", "Setzt ein großes, aber begrenztes Größenpreset.", function() setCharacterScale(1.35) end)
+addCore(2, "Zufällige Pastellfarbe", "Färbt die sichtbaren Körperteile lokal um.", function() setColorAll(Color3.fromHSV(random:NextNumber(), 0.42, 1)) end)
+
+-- 13-20 Bewegung
+addCore(3, "Langsames Tempo", "Setzt WalkSpeed auf 12.", function() if refreshCharacter() then humanoid.WalkSpeed = 12 end end)
+addCore(3, "Normales Tempo", "Setzt WalkSpeed auf 16.", function() if refreshCharacter() then humanoid.WalkSpeed = 16 end end)
+addCore(3, "Schnelles Tempo", "Setzt WalkSpeed auf 24.", function() if refreshCharacter() then humanoid.WalkSpeed = 24 end end)
+addCore(3, "Tempo +2", "Erhöht WalkSpeed bis maximal 40.", function() if refreshCharacter() then humanoid.WalkSpeed = math.clamp(humanoid.WalkSpeed + 2, 4, 40) end end)
+addCore(3, "Tempo −2", "Verringert WalkSpeed bis minimal 4.", function() if refreshCharacter() then humanoid.WalkSpeed = math.clamp(humanoid.WalkSpeed - 2, 4, 40) end end)
+addCore(3, "Sprungkraft +10", "Erhöht JumpPower oder JumpHeight.", function() if refreshCharacter() then setJump((humanoid.UseJumpPower and humanoid.JumpPower or humanoid.JumpHeight) + 10) end end)
+addCore(3, "Sprungkraft −10", "Verringert JumpPower oder JumpHeight.", function() if refreshCharacter() then setJump((humanoid.UseJumpPower and humanoid.JumpPower or humanoid.JumpHeight) - 10) end end)
+addCore(3, "Auto-Rotation umschalten", "Schaltet die Humanoid-AutoRotation um.", function() if refreshCharacter() then humanoid.AutoRotate = not humanoid.AutoRotate end end)
+
+-- 21-24 Fly
+addCore(4, "Fly Ein / Aus", "Schaltet Fly für deinen Charakter sauber um.", function() setFly(not flyEnabled) end)
+addCore(4, "Fly-Geschwindigkeit +8", "Erhöht das Flugtempo bis 90.", function() flySpeed = math.clamp(flySpeed + 8, 20, 90); notify("Fly-Speed: " .. flySpeed) end)
+addCore(4, "Fly-Geschwindigkeit −8", "Verringert das Flugtempo bis 20.", function() flySpeed = math.clamp(flySpeed - 8, 20, 90); notify("Fly-Speed: " .. flySpeed) end)
+addCore(4, "Fly-Höhe nivellieren", "Setzt die Touch-Höhensteuerung auf neutral.", function() flyVertical = 0; notify("Fly-Höhe neutral.") end)
+
+-- 25-30 Position
+addCore(5, "Position speichern", "Speichert deine aktuelle Position unter dem Namen im Feld.", function()
+	local name = requestedName()
+	if name == "" then notify("Bitte zuerst einen Platznamen eingeben.", true); return end
+	if slots[name] then notify("Name existiert bereits. Nutze Überschreiben.", true); return end
+	if not refreshCharacter() then return end
+	slots[name] = root.CFrame
+	refreshPositionList()
+	notify("Position „" .. name .. "“ für diese Sitzung gespeichert.")
+end)
+addCore(5, "Position überschreiben", "Ersetzt einen bereits gespeicherten Platz.", function()
+	local name = requestedName()
+	if name == "" or not slots[name] then notify("Dieser Platzname ist nicht gespeichert.", true); return end
+	if refreshCharacter() then slots[name] = root.CFrame; refreshPositionList(); notify("Position „" .. name .. "“ überschrieben.") end
+end)
+addCore(5, "Position laden", "Prüft Boden und freie Fläche vor dem lokalen Teleport.", function()
+	local name = requestedName()
+	if not slots[name] then notify("Gespeicherte Position nicht gefunden.", true); return end
+	teleportTo(slots[name], "Position „" .. name .. "“ geladen.")
+end)
+addCore(5, "Position löschen", "Entfernt den Platz mit dem eingegebenen Namen.", function()
+	local name = requestedName()
+	if not slots[name] then notify("Gespeicherte Position nicht gefunden.", true); return end
+	slots[name] = nil; refreshPositionList(); notify("Position „" .. name .. "“ gelöscht.")
+end)
+addCore(5, "Checkpoint merken", "Merkt die aktuelle Position als temporären Schnell-Checkpoint.", function()
+	if refreshCharacter() then lastCheckpoint = root.CFrame; notify("Checkpoint gemerkt.") end
+end)
+addCore(5, "Zum Checkpoint zurück", "Lädt den temporären Schnell-Checkpoint.", function()
+	if not lastCheckpoint then notify("Noch kein Checkpoint gespeichert.", true); return end
+	teleportTo(lastCheckpoint, "Checkpoint geladen.")
+end)
+
+-- 31-37 Auren
+addCore(6, "Aura Ein / Aus", "Schaltet eine leichte lokale Neon-Aura um.", function() if auraEnabled then clearAura() else buildAura() end end)
+addCore(6, "Aura-Stil wechseln", "Ändert die Aura-Farbe.", function() auraStyle += 1; if auraEnabled then buildAura() else notify("Aura-Stil gewechselt.") end end)
+addCore(6, "Aura-Farbe zufällig", "Wählt eine zufällige Aura-Farbe.", function() auraStyle = random:NextInteger(1, 200); if auraEnabled then buildAura() end end)
+addCore(6, "Aura-Stärke +1", "Erhöht den lokalen Aura-Radius.", function() auraStrength = math.clamp(auraStrength + 1, 1, 5); if auraEnabled then buildAura() end; notify("Aura-Stärke: " .. auraStrength) end)
+addCore(6, "Aura-Stärke −1", "Verringert den lokalen Aura-Radius.", function() auraStrength = math.clamp(auraStrength - 1, 1, 5); if auraEnabled then buildAura() end; notify("Aura-Stärke: " .. auraStrength) end)
+addCore(6, "Aura-Puls", "Spielt einen kurzen Neon-Puls um deinen Charakter.", function()
+	if not refreshCharacter() then return end
+	local h = make("Highlight", character, { FillColor = Color3.fromHSV(random:NextNumber(), 0.75, 1), OutlineColor = T.text, FillTransparency = 0.2, OutlineTransparency = 0 })
+	tween(h, 0.8, { FillTransparency = 1, OutlineTransparency = 1 })
+	task.delay(0.85, function() if h.Parent then h:Destroy() end end)
+end)
+addCore(6, "Aura vollständig entfernen", "Entfernt Aura-Teile und deren Update-Verbindung.", clearAura)
+
+-- 38-39 Eigene Troll-Grundaktionen
+addCore(7, "Eigener Charakter-Glow", "Kurzer Farbrand nur an deinem Charakter.", function() playTroll(1) end)
+addCore(7, "Bildschirm-Konfetti", "Kurzer visueller Gag, nur auf deinem Bildschirm.", function() playTroll(41) end)
+
+-- 40-42 Server-Tab: nur lokale Anzeige und Spectate, keine Servermutation.
+addCore(8, "Spielerliste aktualisieren", "Zeigt die sichtbaren Spieler dieser Sitzung.", refreshRoster)
+addCore(8, "Nächsten Spieler spectaten", "Ändert nur deine lokale Kamera.", function() spectateStep(1) end)
+addCore(8, "Spectate beenden", "Setzt deine Kamera auf deinen Charakter zurück.", stopSpectate)
+
+-- 43 Reset
+addCore(9, "Zurück auf Normal", "Stellt Größe, Farbe, Tempo, Sprung, Fly, Aura und Effekte wieder her.", function()
+	setFly(false)
+	clearAura()
+	stopTroll()
+	if refreshCharacter() then
+		character:ScaleTo(defaultScale or 1)
+		humanoid.WalkSpeed = defaultSpeed or 16
+		humanoid.JumpPower = defaultJumpPower or 50
+		humanoid.JumpHeight = defaultJumpHeight or 7.2
+		humanoid.AutoRotate = defaultAutoRotate ~= nil and defaultAutoRotate or true
+		humanoid.CameraOffset = defaultCameraOffset
+		restoreColors()
+	end
+	local cam = Workspace.CurrentCamera
+	if cam then cam.FieldOfView = defaultCameraFov end
+	stopSpectate()
+	notify("Dein Charakter ist wieder normal. Positionsplätze bleiben erhalten.")
+end)
+
+-- 44-50 Einstellungen / Hilfe
+local function windowBounds()
+	local viewport = Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize or Vector2.new(1200, 800)
+	return math.min(680, math.max(320, viewport.X - 24)), math.min(1120, math.max(360, viewport.X - 20)),
+		math.min(440, math.max(280, viewport.Y - 48)), math.min(780, math.max(300, viewport.Y - 40))
+end
+local function changeWindowSize(widthDelta, heightDelta)
+	local minWidth, maxWidth, minHeight, maxHeight = windowBounds()
+	local width = math.clamp(main.Size.X.Offset + widthDelta, minWidth, maxWidth)
+	local height = math.clamp(main.Size.Y.Offset + heightDelta, minHeight, maxHeight)
+	tween(main, 0.2, { Size = UDim2.fromOffset(width, height) })
+end
+addCore(10, "Fenstergröße zurücksetzen", "Stellt die Standardgröße des Panels ein.", function()
+	local minWidth, maxWidth, minHeight, maxHeight = windowBounds()
+	tween(main, 0.25, { Size = UDim2.fromOffset(math.clamp(920, minWidth, maxWidth), math.clamp(640, minHeight, maxHeight)) })
+end)
+addCore(10, "Fenster kleiner", "Verkleinert das Panel.", function() changeWindowSize(-70, -45) end)
+addCore(10, "Fenster größer", "Vergrößert das Panel.", function() changeWindowSize(70, 45) end)
+addCore(10, "UI-Animationen umschalten", "Schaltet Hover- und Seitenanimationen um.", function() animationsEnabled = not animationsEnabled; notify("Animationen " .. (animationsEnabled and "an" or "aus")) end)
+addCore(10, "Steuerung anzeigen", "Zeigt F2-, Zieh- und Größenhinweise.", function() notify("F2: öffnen/schließen · Leiste: ziehen · Ecke: skalieren · Fly: Joystick/WASD") end)
+addCore(10, "Session-Info", "Zeigt, dass Positionen nur im aktuellen Client-Speicher liegen.", function() notify("Positionen werden beim Verlassen des Servers gelöscht.") end)
+addCore(10, "Funktionszähler", "Zeigt den Umfang dieses Panels.", function() notify("50 Hub-Grundfunktionen + 100 lokale Troll-Gags") end)
+
+if coreCount ~= 50 then warn("Alessio Hub expected 50 core actions; found", coreCount) end
+
+-- Attach the 100 individually named, parameter-distinct local effects after the core entries.
+addTrollCards()
+
+local directoryLines = {}
+for i = 1, 150 do
+	directoryLines[i] = string.format("%03d  %s", i, functionDirectory[i])
+end
+make("TextLabel", pages[10], {
+	Size = UDim2.new(1, -4, 0, 0),
+	AutomaticSize = Enum.AutomaticSize.Y,
+	BackgroundColor3 = T.card,
+	BackgroundTransparency = 0.06,
+	Text = "FUNKTIONSVERZEICHNIS  1–150\n\n" .. table.concat(directoryLines, "\n"),
+	TextColor3 = T.muted,
+	TextSize = 10,
+	Font = Enum.Font.Code,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Top,
+	TextWrapped = true,
+	LayoutOrder = 900,
+})
+
+-- F2: toggle the panel, ignoring keystrokes while the player is typing.
+local opening = false
+togglePanel = function()
+	if opening then return end
+	opening = true
+	if main.Visible then
+		local closeTween = tween(main, 0.18, { GroupTransparency = 1 })
+		if closeTween then closeTween.Completed:Once(function() main.Visible = false; opening = false end) else main.Visible = false; opening = false end
+	else
+		main.Visible = true
+		main.GroupTransparency = 1
+		local openTween = tween(main, 0.23, { GroupTransparency = 0 })
+		if openTween then openTween.Completed:Once(function() opening = false end) else opening = false end
+	end
+end
+closeButton.Activated:Connect(togglePanel)
+UserInputService.InputBegan:Connect(function(input, processed)
+	if input.KeyCode == Enum.KeyCode.F2 and not UserInputService:GetFocusedTextBox() then
+		togglePanel()
+	elseif flyEnabled and input.KeyCode == Enum.KeyCode.Space then flyVertical = 1
+	elseif flyEnabled and (input.KeyCode == Enum.KeyCode.LeftControl or input.KeyCode == Enum.KeyCode.RightControl) then flyVertical = -1 end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	if flyEnabled and (input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.LeftControl or input.KeyCode == Enum.KeyCode.RightControl) then flyVertical = 0 end
+end)
+
+-- Dragging the title bar and resizing the bottom-right grip work with mouse and touch.
+local dragging, resizing = false, false
+local dragInput, dragStart, startPosition
+local resizeInput, resizeStart, startSize
+header.Active = true
+title.Active = true
+subtitle.Active = true
+local function startDragging(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPosition = main.Position
+		input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
+	end
+end
+header.InputBegan:Connect(startDragging)
+title.InputBegan:Connect(startDragging)
+subtitle.InputBegan:Connect(startDragging)
+header.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+end)
+
+local grip = make("TextButton", main, {
+	Name = "ResizeGrip",
+	AnchorPoint = Vector2.new(1, 1),
+	Position = UDim2.new(1, -4, 1, -4),
+	Size = UDim2.fromOffset(28, 28),
+	BackgroundColor3 = T.accent,
+	BackgroundTransparency = 0.08,
+	Text = "◢",
+	TextColor3 = T.text,
+	TextSize = 14,
+	Font = Enum.Font.GothamBold,
+	AutoButtonColor = false,
+	ZIndex = 5,
+})
+corner(grip, 9)
+grip.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		resizing = true
+		resizeStart = input.Position
+		startSize = main.Size
+		input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then resizing = false end end)
+	end
+end)
+grip.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then resizeInput = input end
+end)
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - dragStart
+		main.Position = UDim2.new(startPosition.X.Scale, startPosition.X.Offset + delta.X, startPosition.Y.Scale, startPosition.Y.Offset + delta.Y)
+	elseif resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+		local delta = input.Position - resizeStart
+		local viewport = Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize or Vector2.new(1200, 800)
+		local minWidth, maxWidth = math.min(680, math.max(320, viewport.X - 24)), math.min(1120, math.max(360, viewport.X - 20))
+		local minHeight, maxHeight = math.min(440, math.max(280, viewport.Y - 48)), math.min(780, math.max(300, viewport.Y - 40))
+		local width = math.clamp(startSize.X.Offset + delta.X, minWidth, maxWidth)
+		local height = math.clamp(startSize.Y.Offset + delta.Y, minHeight, maxHeight)
+		main.Size = UDim2.fromOffset(width, height)
+	end
+end)
+
+-- Adapt the default bounds for smaller screens; the grip remains available for fine adjustments.
+local camera = Workspace.CurrentCamera
+if camera then
+	local function adaptToViewport(viewport)
+		local width = math.clamp(viewport.X - 24, 320, 920)
+		local height = math.clamp(viewport.Y - 60, 300, 640)
+		main.Size = UDim2.fromOffset(width, height)
+		local compact = viewport.X < 620
+		local navWidth = compact and 116 or 170
+		nav.Size = UDim2.new(0, navWidth, 1, -12)
+		pagesHolder.Position = UDim2.new(0, navWidth + 22, 0, 0)
+		pagesHolder.Size = UDim2.new(1, -(navWidth + 34), 1, -12)
+		title.Size = UDim2.new(0, compact and 170 or 280, 0, 28)
+		subtitle.Size = UDim2.new(0, compact and 190 or 390, 0, 18)
+	end
+	adaptToViewport(camera.ViewportSize)
+	camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+		adaptToViewport(camera.ViewportSize)
+	end)
+end
+
+main.Visible = true
+task.defer(function()
+	local intro = "Alessio-Hub-Gag: Willkommen! Dein Charakter wurde mit 100 % guter Laune geladen."
+	notify(intro)
+end)
+
+-- Numbered function directory: 1-50 are core actions above; 51-150 are the 100 Troll cards.
+-- All Troll cards target only the local player's visuals, camera, or character pose and auto-clean up.
